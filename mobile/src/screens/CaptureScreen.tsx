@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-
-const MIN_CHARS = 20;
-const MAX_CHARS = 1200;
+import { messageSchema, MIN_CHARS, MAX_CHARS } from "../validation/messageSchema";
 
 export default function CaptureScreen() {
+  // Hooks must be at the top-level of the component (Rules of Hooks).
   const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const trimmed = text.trim();
+
   const canAnalyze = useMemo(() => trimmed.length >= MIN_CHARS, [trimmed.length]);
 
   const hint = useMemo(() => {
@@ -15,6 +16,19 @@ export default function CaptureScreen() {
     if (trimmed.length < MIN_CHARS) return `Add ${MIN_CHARS - trimmed.length} more characters.`;
     return "";
   }, [trimmed.length]);
+
+  const onAnalyze = () => {
+    setError(null);
+
+    const result = messageSchema.safeParse({ text });
+    if (!result.success) {
+      setError(result.error.issues[0]?.message ?? "Invalid message");
+      return;
+    }
+
+    // Valid input (Step A4 will use this to navigate / call stub)
+    console.log("Validated message:", result.data.text);
+  };
 
   return (
     <View style={styles.container}>
@@ -24,7 +38,10 @@ export default function CaptureScreen() {
       <View style={styles.inputCard}>
         <TextInput
           value={text}
-          onChangeText={setText}
+          onChangeText={(v) => {
+            setText(v);
+            if (error) setError(null);
+          }}
           placeholder="Paste the message here…"
           multiline
           maxLength={MAX_CHARS}
@@ -40,11 +57,12 @@ export default function CaptureScreen() {
       </View>
 
       {!!hint && <Text style={styles.hint}>{hint}</Text>}
+      {!!error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable
         disabled={!canAnalyze}
         style={[styles.button, !canAnalyze && styles.buttonDisabled]}
-        onPress={() => console.log("Analyze pressed:", trimmed)}
+        onPress={onAnalyze}
       >
         <Text style={styles.buttonText}>Analyze</Text>
       </Pressable>
@@ -76,6 +94,7 @@ const styles = StyleSheet.create({
   },
 
   hint: { marginTop: 10, fontSize: 13, opacity: 0.75 },
+  error: { marginTop: 10, fontSize: 13, color: "#B00020" },
 
   button: {
     marginTop: 16,
