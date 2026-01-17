@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import type { AnalysisResult } from "../lib/analyzeStub";
+import type { ApiAnalyzeResponse as AnalysisResult } from "../lib/api";
 
 type Props = {
   inputText: string;
