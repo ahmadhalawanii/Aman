@@ -1,15 +1,18 @@
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { messageSchema, MIN_CHARS, MAX_CHARS } from "../validation/messageSchema";
 
-export default function CaptureScreen() {
-  // Hooks must be at the top-level of the component (Rules of Hooks).
+type Props = {
+  loading: boolean;
+  onSubmit: (validatedText: string) => void;
+};
+
+export default function CaptureScreen({ loading, onSubmit }: Props) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const trimmed = text.trim();
-
-  const canAnalyze = useMemo(() => trimmed.length >= MIN_CHARS, [trimmed.length]);
+  const canAnalyze = useMemo(() => trimmed.length >= MIN_CHARS && !loading, [trimmed.length, loading]);
 
   const hint = useMemo(() => {
     if (trimmed.length === 0) return `Paste at least ${MIN_CHARS} characters.`;
@@ -17,7 +20,7 @@ export default function CaptureScreen() {
     return "";
   }, [trimmed.length]);
 
-  const onAnalyze = () => {
+  const handleAnalyze = () => {
     setError(null);
 
     const result = messageSchema.safeParse({ text });
@@ -26,8 +29,7 @@ export default function CaptureScreen() {
       return;
     }
 
-    // Valid input (Step A4 will use this to navigate / call stub)
-    console.log("Validated message:", result.data.text);
+    onSubmit(result.data.text); // already trimmed by schema
   };
 
   return (
@@ -49,6 +51,7 @@ export default function CaptureScreen() {
           style={styles.input}
           autoCorrect={false}
           autoCapitalize="none"
+          editable={!loading}
         />
 
         <Text style={styles.counter}>
@@ -62,9 +65,9 @@ export default function CaptureScreen() {
       <Pressable
         disabled={!canAnalyze}
         style={[styles.button, !canAnalyze && styles.buttonDisabled]}
-        onPress={onAnalyze}
+        onPress={handleAnalyze}
       >
-        <Text style={styles.buttonText}>Analyze</Text>
+        {loading ? <ActivityIndicator /> : <Text style={styles.buttonText}>Analyze</Text>}
       </Pressable>
     </View>
   );
