@@ -1,71 +1,54 @@
-import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { messageSchema, MIN_CHARS, MAX_CHARS } from "../validation/messageSchema";
+// mobile/src/screens/CaptureScreen.tsx
+import React, { useState } from "react";
+import { View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet } from "react-native";
+import { messageSchema } from "../validation/messageSchema";
 
 type Props = {
   loading: boolean;
-  onSubmit: (validatedText: string) => void;
+  onSubmit: (validatedText: string) => void | Promise<void>;
+  error?: string | null;
+  onClearError?: () => void;
 };
 
-export default function CaptureScreen({ loading, onSubmit }: Props) {
+export default function CaptureScreen({ loading, onSubmit, error, onClearError }: Props) {
   const [text, setText] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const trimmed = text.trim();
-  const canAnalyze = useMemo(() => trimmed.length >= MIN_CHARS && !loading, [trimmed.length, loading]);
+  const shownError = error ?? localError;
 
-  const hint = useMemo(() => {
-    if (trimmed.length === 0) return `Paste at least ${MIN_CHARS} characters.`;
-    if (trimmed.length < MIN_CHARS) return `Add ${MIN_CHARS - trimmed.length} more characters.`;
-    return "";
-  }, [trimmed.length]);
+  const onAnalyzePress = async () => {
+    onClearError?.();
+    setLocalError(null);
 
-  const handleAnalyze = () => {
-    setError(null);
-
-    const result = messageSchema.safeParse({ text });
-    if (!result.success) {
-      setError(result.error.issues[0]?.message ?? "Invalid message");
+    const parsed = messageSchema.safeParse({ text });
+    if (!parsed.success) {
+      setLocalError(parsed.error.issues[0]?.message ?? "Invalid message");
       return;
     }
 
-    onSubmit(result.data.text); // already trimmed by schema
+    await onSubmit(parsed.data.text.trim()); // ✅ this is the key fix
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Analyze a message</Text>
-      <Text style={styles.subtitle}>Paste SMS / WhatsApp / email text</Text>
+      <Text style={styles.title}>Analyzer</Text>
 
-      <View style={styles.inputCard}>
+      <View style={styles.inputCard}> 
         <TextInput
           value={text}
-          onChangeText={(v) => {
-            setText(v);
-            if (error) setError(null);
-          }}
-          placeholder="Paste the message here…"
-          multiline
-          maxLength={MAX_CHARS}
-          textAlignVertical="top"
+          onChangeText={setText}
+          placeholder="Paste message here"
           style={styles.input}
-          autoCorrect={false}
-          autoCapitalize="none"
-          editable={!loading}
+          multiline
         />
-
-        <Text style={styles.counter}>
-          {text.length} / {MAX_CHARS}
-        </Text>
       </View>
 
-      {!!hint && <Text style={styles.hint}>{hint}</Text>}
-      {!!error && <Text style={styles.error}>{error}</Text>}
+      {!!shownError && <Text style={styles.error}>{shownError}</Text>}
 
       <Pressable
-        disabled={!canAnalyze}
-        style={[styles.button, !canAnalyze && styles.buttonDisabled]}
-        onPress={handleAnalyze}
+        onPress={onAnalyzePress}
+        disabled={loading}
+        style={[styles.button, loading && styles.buttonDisabled]}
       >
         {loading ? <ActivityIndicator /> : <Text style={styles.buttonText}>Analyze</Text>}
       </Pressable>
@@ -75,8 +58,7 @@ export default function CaptureScreen({ loading, onSubmit }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 24 },
-  title: { fontSize: 26, fontWeight: "700" },
-  subtitle: { marginTop: 6, fontSize: 14, opacity: 0.75 },
+  title: { fontSize: 22, fontWeight: "700" },
 
   inputCard: {
     marginTop: 16,
@@ -84,19 +66,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
   },
-  input: {
-    minHeight: 180,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  counter: {
-    marginTop: 8,
-    fontSize: 12,
-    opacity: 0.7,
-    textAlign: "right",
-  },
+  input: { minHeight: 180, fontSize: 15, lineHeight: 20 },
 
-  hint: { marginTop: 10, fontSize: 13, opacity: 0.75 },
   error: { marginTop: 10, fontSize: 13, color: "#B00020" },
 
   button: {
