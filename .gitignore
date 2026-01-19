@@ -8,6 +8,7 @@ Thumbs.db
 # JetBrains
 .idea/
 *.iml
+.output.txt
 
 # VS Code
 .vscode/

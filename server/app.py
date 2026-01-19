@@ -4,6 +4,8 @@ import re
 import joblib
 from fastapi import FastAPI
 from pydantic import BaseModel
+from typing import List, Optional
+from url_engine import analyze_urls
 
 BASE = pathlib.Path(__file__).resolve().parent
 MODEL_PATH = BASE / "model" / "sms_spam_pipeline.joblib"  # <- matches your saved path
@@ -56,9 +58,19 @@ def _spam_probability(text: str) -> float:
     raise RuntimeError(f"Unrecognized classes_: {classes}")
 
 
+class UrlAnalyzeIn(BaseModel):
+    urls: List[str]
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "hint": "Open /docs for Swagger UI"}
+
+
+@app.post("/url/analyze")
+def url_analyze(payload: UrlAnalyzeIn):
+    results = analyze_urls(payload.urls)
+    return {"results": results}
 
 
 @app.post("/analyze")
@@ -86,8 +98,11 @@ def analyze(req: AnalyzeRequest):
 
     confidence = float(p_spam if label == "spam" else (1.0 - p_spam))
 
-    # URLs
-    urls = [u.rstrip("),.?!:;\"'’") for u in (URL_RE.findall(text) or [])]
+    # URLs extraction
+    raw_urls = [u.rstrip("),.?!:;\"'’") for u in (URL_RE.findall(text) or [])]
+    
+    # URL Analysis
+    url_results = analyze_urls(raw_urls)
 
     # Simple “reasons” (optional but helpful for the UI)
     reasons = []
@@ -100,14 +115,24 @@ def analyze(req: AnalyzeRequest):
         reasons.append(
             {"code": "credentials", "title": "Credential request", "detail": "Message mentions verifying/login/OTP/PIN."}
         )
-    if urls:
+    
+    if url_results:
         reasons.append(
-            {"code": "url_present", "title": "Link present", "detail": "Message contains at least one URL."}
+            {"code": "url_present", "title": "Link present", "detail": f"Message contains {len(url_results)} URL(s)."}
         )
+        
+        # Add risk reasons from URLs
+        for res in url_results:
+            if res["final_verdict"] != "clean":
+                reasons.append({
+                    "code": f"url_{res['final_verdict']}",
+                    "title": f"Unsafe link: {res['final_verdict']}",
+                    "detail": f"URL {res['url']} is flagged: {', '.join(res['reasons'])}"
+                })
 
     return {
         "score": authenticity_score,
         "model": {"label": label, "confidence": confidence},
-        "urls": [{"url": u, "verdict": "unknown"} for u in urls],
+        "urls": url_results,
         "reasons": reasons,
     }
