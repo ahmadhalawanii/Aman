@@ -1,12 +1,14 @@
 // mobile/App.tsx
 import React, { useState } from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ThemeProvider } from "./src/theme/ThemeProvider";
 import CaptureScreen from "./src/screens/CaptureScreen";
 import ResultsScreen from "./src/screens/ResultsScreen";
 import { analyzeMessage, type ApiAnalyzeResponse } from "./src/lib/api";
 
 type Screen = "capture" | "results";
 
-export default function App() {
+function MainApp() {
   const [screen, setScreen] = useState<Screen>("capture");
   const [loading, setLoading] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -37,8 +39,6 @@ export default function App() {
         result={result}
         onBack={() => {
           setScreen("capture");
-          // optional: keep result for quick back/forward; or clear it:
-          // setResult(null);
         }}
       />
     );
@@ -48,9 +48,18 @@ export default function App() {
     <CaptureScreen
       loading={loading}
       onSubmit={handleSubmit}
-      // If your CaptureScreen doesn’t accept this prop, remove it.
       error={error}
       onClearError={() => setError(null)}
     />
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <MainApp />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

@@ -1,2 +1,61 @@
+# --------------------
+# OS / Editor
+# --------------------
 .DS_Store
 /src/
+Thumbs.db
+
+# JetBrains
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# --------------------
+# Node / Expo / React Native
+# --------------------
+node_modules/
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+
+# Expo
+**/.expo/
+**/.expo-shared/
+**/web-build/
+**/dist/
+**/build/
+
+# React Native
+**/.metro-health-check*
+**/.react-native/
+
+# --------------------
+# Python / FastAPI
+# --------------------
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Virtual environments (important)
+**/.venv/
+**/venv/
+**/ENV/
+**/.env/
+
+# Common env files (keep secrets out)
+.env
+.env.*
+!.env.example
+
+# --------------------
+# OneDrive / Windows noise (optional)
+# --------------------
+*.lnk

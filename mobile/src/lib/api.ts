@@ -1,5 +1,5 @@
 // mobile/src/lib/api.ts
-const BASE_URL = "http://192.168.70.43:8000";
+const BASE_URL = "http://192.168.1.244:8000";
 
 export type ApiAnalyzeResponse = {
   score: number;

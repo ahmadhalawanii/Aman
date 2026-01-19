@@ -1,5 +1,8 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import React, { useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import MenuSheet from "../components/MenuSheet";
+import { useTheme } from "../theme/ThemeProvider";
 import type { ApiAnalyzeResponse as AnalysisResult } from "../lib/api";
 
 type Props = {
@@ -9,105 +12,129 @@ type Props = {
 };
 
 function scoreLabel(score: number) {
-  if (score >= 80) return "Likely safe";
-  if (score >= 50) return "Suspicious";
-  return "High risk";
+  if (score >= 80) return "High risk";
+  if (score >= 50) return "Medium risk";
+  return "Low risk";
 }
 
 export default function ResultsScreen({ inputText, result, onBack }: Props) {
+  const { theme } = useTheme();
+  const c = theme.colors;
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Authenticity Result</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={["top", "left", "right"]}>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: c.text }]}>Authenticity Result</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.score}>{result.score}</Text>
-        <Text style={styles.scoreLabel}>{scoreLabel(result.score)}</Text>
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} style={styles.menuBtn}>
+          <Text style={[styles.menuIcon, { color: c.text }]}>☰</Text>
+        </Pressable>
       </View>
 
-      <Text style={styles.sectionTitle}>Top reasons</Text>
-      {result.reasons.length === 0 ? (
-        <Text style={styles.muted}>No indicators detected.</Text>
-      ) : (
-        result.reasons.map((r) => (
-          <View key={r.code} style={styles.reasonCard}>
-            <Text style={styles.reasonTitle}>{r.title}</Text>
-            <Text style={styles.muted}>{r.detail}</Text>
-          </View>
-        ))
-      )}
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.score, { color: result.score >= 50 ? c.danger : c.primary }]}>{result.score}</Text>
+          <Text style={[styles.scoreLabel, { color: c.muted }]}>{scoreLabel(result.score)}</Text>
+        </View>
 
-      <Text style={styles.sectionTitle}>Extracted URLs</Text>
-      {result.urls.length === 0 ? (
-        <Text style={styles.muted}>No URLs found.</Text>
-      ) : (
-        result.urls.map((u) => (
-          <View key={u.url} style={styles.urlRow}>
-            <Text style={styles.url}>{u.url}</Text>
-            <Text style={styles.badge}>{u.verdict.toUpperCase()}</Text>
-          </View>
-        ))
-      )}
+        <Text style={[styles.sectionTitle, { color: c.text }]}>Top reasons</Text>
+        {result.reasons.length === 0 ? (
+          <Text style={[styles.muted, { color: c.muted }]}>No indicators detected.</Text>
+        ) : (
+          result.reasons.map((r) => (
+            <View key={r.code} style={[styles.reasonCard, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={[styles.reasonTitle, { color: c.text }]}>{r.title}</Text>
+              <Text style={[styles.muted, { color: c.muted }]}>{r.detail}</Text>
+            </View>
+          ))
+        )}
 
-      <Text style={styles.sectionTitle}>Message preview</Text>
-      <View style={styles.preview}>
-        <Text style={styles.previewText}>{inputText}</Text>
-      </View>
+        <Text style={[styles.sectionTitle, { color: c.text }]}>Extracted URLs</Text>
+        {result.urls.length === 0 ? (
+          <Text style={[styles.muted, { color: c.muted }]}>No URLs found.</Text>
+        ) : (
+          result.urls.map((u) => (
+            <View key={u.url} style={[styles.urlRow, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={[styles.url, { color: c.text }]}>{u.url}</Text>
+              <Text style={[styles.badge, { color: c.muted }]}>{u.verdict.toUpperCase()}</Text>
+            </View>
+          ))
+        )}
 
-      <Pressable style={styles.button} onPress={onBack}>
-        <Text style={styles.buttonText}>Back</Text>
-      </Pressable>
-    </ScrollView>
+        <Text style={[styles.sectionTitle, { color: c.text }]}>Message preview</Text>
+        <View style={[styles.preview, { backgroundColor: c.card2, borderColor: c.border }]}>
+          <Text style={[styles.previewText, { color: c.text }]}>{inputText}</Text>
+        </View>
+
+        <Pressable style={[styles.button, { backgroundColor: c.primary }]} onPress={onBack}>
+          <Text style={styles.buttonText}>Back</Text>
+        </Pressable>
+      </ScrollView>
+
+      <MenuSheet visible={menuOpen} onClose={() => setMenuOpen(false)} />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 28 },
-  title: { fontSize: 24, fontWeight: "700" },
-
+  container: { flex: 1 },
+  header: {
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerTitle: { fontSize: 22, fontWeight: "800" },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+  },
+  menuIcon: { fontSize: 22, fontWeight: "900" },
+  content: {
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+    gap: 12,
+  },
   card: {
-    marginTop: 14,
     borderWidth: 1,
     borderRadius: 12,
     padding: 14,
     alignItems: "center",
   },
   score: { fontSize: 52, fontWeight: "800" },
-  scoreLabel: { marginTop: 6, fontSize: 14, opacity: 0.75 },
-
+  scoreLabel: { marginTop: 6, fontSize: 14 },
   sectionTitle: { marginTop: 18, fontSize: 16, fontWeight: "700" },
-
   reasonCard: {
-    marginTop: 10,
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
   },
   reasonTitle: { fontSize: 14, fontWeight: "700" },
-  muted: { marginTop: 6, opacity: 0.75 },
-
+  muted: { marginTop: 6 },
   urlRow: {
-    marginTop: 10,
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
   },
   url: { fontSize: 13 },
-  badge: { marginTop: 8, fontSize: 12, fontWeight: "700", opacity: 0.75 },
-
+  badge: { marginTop: 8, fontSize: 12, fontWeight: "700" },
   preview: {
-    marginTop: 10,
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
   },
   previewText: { fontSize: 13, lineHeight: 18 },
-
   button: {
     marginTop: 18,
-    borderWidth: 1,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
   },
-  buttonText: { fontSize: 16, fontWeight: "600" },
+  buttonText: { fontSize: 16, fontWeight: "800", color: "white" },
 });
