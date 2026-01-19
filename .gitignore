@@ -62,3 +62,5 @@ __pycache__/
 # OneDrive / Windows noise (optional)
 # --------------------
 *.lnk
+server/data/*.csv
+server/data/SMSSpamCollection
