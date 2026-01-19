@@ -5,14 +5,14 @@ import joblib
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Optional
-from url_engine import analyze_urls
+from url_engine import analyze_urls, normalize_url, virustotal_lookup
 
 BASE = pathlib.Path(__file__).resolve().parent
 MODEL_PATH = BASE / "model" / "sms_spam_pipeline.joblib"  # <- matches your saved path
 
 app = FastAPI(title="Aman SMS Analyzer", version="1.0")
 
-URL_RE = re.compile(r"https?://[^\s)]+", re.IGNORECASE)
+URL_RE = re.compile(r"(?:https?://|www\.)[^\s)]+", re.IGNORECASE)
 
 
 class AnalyzeRequest(BaseModel):
@@ -62,6 +62,18 @@ class UrlAnalyzeIn(BaseModel):
     urls: List[str]
 
 
+class FeedbackIn(BaseModel):
+    url: str
+    label: str  # e.g., "scam" or "legit"
+
+
+@app.post("/url/feedback")
+def url_feedback(payload: FeedbackIn):
+    from url_engine import store_feedback
+    store_feedback(payload.url, payload.label)
+    return {"status": "ok", "message": "Feedback stored for review"}
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "hint": "Open /docs for Swagger UI"}
@@ -71,6 +83,15 @@ def root():
 def url_analyze(payload: UrlAnalyzeIn):
     results = analyze_urls(payload.urls)
     return {"results": results}
+
+
+@app.post("/url/deep-check")
+def url_deep_check(req: AnalyzeRequest):
+    url = req.text.strip()
+    if not url:
+        return {"error": "No URL provided"}
+    url = normalize_url(url)
+    return virustotal_lookup(url)
 
 
 @app.post("/analyze")
@@ -99,7 +120,7 @@ def analyze(req: AnalyzeRequest):
     confidence = float(p_spam if label == "spam" else (1.0 - p_spam))
 
     # URLs extraction
-    raw_urls = [u.rstrip("),.?!:;\"'’") for u in (URL_RE.findall(text) or [])]
+    raw_urls = URL_RE.findall(text) or []
     
     # URL Analysis
     url_results = analyze_urls(raw_urls)

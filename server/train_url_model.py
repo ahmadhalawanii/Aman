@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -5,19 +6,43 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 import joblib
-import os
 
-CSV_PATH = os.path.join("data", "malicious_phish.csv")
-MODEL_OUT = os.path.join("model", "url_model.joblib")
+BASE = os.path.dirname(os.path.abspath(__file__))
+MALICIOUS_CSV = os.path.join(BASE, "data", "malicious_phish.csv")
+BENIGN_CSV    = os.path.join(BASE, "data", "processed", "benign_urls_gcc.csv")
+MODEL_OUT     = os.path.join(BASE, "model", "url_model.joblib")
 
-if not os.path.exists(CSV_PATH):
-    print(f"Error: {CSV_PATH} not found.")
-    exit(1)
+for p in [MALICIOUS_CSV, BENIGN_CSV]:
+    if not os.path.exists(p):
+        print(f"Error: {p} not found.")
+        exit(1)
 
-print(f"Loading dataset from {CSV_PATH}...")
-df = pd.read_csv(CSV_PATH)
+print(f"Loading malicious dataset from {MALICIOUS_CSV}...")
+df_mal = pd.read_csv(MALICIOUS_CSV)[["url", "type"]]
 
-# Option A: multiclass (benign/phishing/malware/defacement)
+print(f"Loading benign GCC dataset from {BENIGN_CSV}...")
+df_ben = pd.read_csv(BENIGN_CSV)[["url", "type"]]
+
+# Basic cleanup
+df_mal["url"] = df_mal["url"].astype(str).str.strip()
+df_ben["url"] = df_ben["url"].astype(str).str.strip().str.lower()
+
+df_mal = df_mal.dropna().drop_duplicates(subset=["url"])
+df_ben = df_ben.dropna().drop_duplicates(subset=["url"])
+
+# Combine datasets
+print("Merging datasets...")
+# Separate malicious and benign from the original set
+df_mal_only = df_mal[df_mal["type"] != "benign"]
+df_ben_orig = df_mal[df_mal["type"] == "benign"]
+
+# Downsample original benign to ~200k to balance with malicious (~223k)
+# and give our new 41k GCC/Global benign URLs more relative weight.
+df_ben_orig_sampled = df_ben_orig.sample(n=min(len(df_ben_orig), 200000), random_state=42)
+
+# Combine: 223k malicious + 200k generic benign + 41k high-quality benign
+df = pd.concat([df_mal_only, df_ben_orig_sampled, df_ben], ignore_index=True).sample(frac=1.0, random_state=42)
+
 y = df["type"].astype(str)
 X = df["url"].astype(str)
 
@@ -32,7 +57,7 @@ pipe = Pipeline([
         analyzer="char",
         ngram_range=(3, 5),
         min_df=2,
-        max_features=200000,   # keeps memory sane
+        max_features=200000,
     )),
     ("clf", LogisticRegression(
         max_iter=2000,
