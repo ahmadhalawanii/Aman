@@ -36,6 +36,7 @@ node_modules/
 # --------------------
 # Python / FastAPI
 # --------------------
+__pycache__/
 **/__pycache__/
 **/*.py[cod]
 **/*.pyo
@@ -49,6 +50,7 @@ node_modules/
 **/venv/
 **/ENV/
 **/.env/
+.venv/
 
 # Common env files (keep secrets out)
 .env
