@@ -58,6 +58,44 @@ def _spam_probability(text: str) -> float:
     raise RuntimeError(f"Unrecognized classes_: {classes}")
 
 
+def url_risk_score(url_items: list[dict]) -> int:
+    """
+    url_items: each item includes fields like:
+      verdict: 'clean' | 'unknown' | 'flagged'
+      ml_prob: float (optional)
+      safe_browsing: { sb_verdict: 'match'|'no_match'|'not_configured'... } (optional)
+    """
+    if not url_items:
+        return 0
+
+    # 1) If Google Safe Browsing returns a match, treat as very high risk.
+    for u in url_items:
+        sb = (u.get("safe_browsing") or {}).get("sb_verdict")
+        if sb in ("match", "unsafe", "threat_match"):
+            return 95
+
+    # 2) If your engine already decided FLAGGED, push high.
+    flagged = [u for u in url_items if u.get("verdict") == "flagged"]
+    if flagged:
+        # If ML is extremely confident, go higher; otherwise still high.
+        max_prob = max(float(u.get("ml_prob") or 0) for u in flagged)
+        return 95 if max_prob >= 0.97 else 88
+
+    # 3) Unknown URLs (shorteners / new links) -> optional medium bump
+    if any(u.get("verdict") == "unknown" for u in url_items):
+        return 60
+
+    return 0
+
+
+def aggregate_overall_score(message_score: int, url_items: list[dict]) -> tuple[int, str]:
+    u_score = url_risk_score(url_items)
+    overall = max(int(message_score or 0), u_score)
+
+    label = "High risk" if overall >= 80 else "Medium risk" if overall >= 50 else "Low risk"
+    return overall, label
+
+
 class UrlAnalyzeIn(BaseModel):
     urls: List[str]
 
@@ -101,6 +139,7 @@ def analyze(req: AnalyzeRequest):
     if not text:
         return {
             "score": 0,
+            "risk_label": "Low risk",
             "model": {"label": "ham", "confidence": 0.0},
             "urls": [],
             "reasons": [],
@@ -108,7 +147,7 @@ def analyze(req: AnalyzeRequest):
 
     # Model outputs
     p_spam = _spam_probability(text)
-    authenticity_score = round((1.0 - p_spam) * 100)
+    message_risk_score = round(p_spam * 100)
 
     # Predicted label (robust for numeric or string labels)
     pred = model.predict([text])[0]
@@ -151,9 +190,13 @@ def analyze(req: AnalyzeRequest):
                     "detail": f"URL {res['url']} is flagged: {', '.join(res['reasons'])}"
                 })
 
+    overall_score, risk_label = aggregate_overall_score(message_risk_score, url_results)
+
     return {
-        "score": authenticity_score,
+        "score": overall_score,
+        "risk_label": risk_label,
         "model": {"label": label, "confidence": confidence},
         "urls": url_results,
         "reasons": reasons,
+        "text": text
     }

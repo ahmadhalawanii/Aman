@@ -3,9 +3,11 @@ const BASE_URL = "http://192.168.1.244:8000";
 
 export type ApiAnalyzeResponse = {
   score: number;
+  risk_label?: string;
   model: { label: "spam" | "ham"; confidence: number };
   urls: { url: string; verdict: string }[];
   reasons: { code: string; title: string; detail: string }[];
+  text?: string;
 };
 
 export async function analyzeMessage(text: string): Promise<ApiAnalyzeResponse> {
