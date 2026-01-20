@@ -7,7 +7,7 @@ type Props = {
   onClose: () => void;
 };
 
-export default function MenuSheet({ visible, onClose }: Props) {
+export default function AppMenuSheet({ visible, onClose }: Props) {
   const { theme, toggleDark } = useTheme();
   const c = theme.colors;
 

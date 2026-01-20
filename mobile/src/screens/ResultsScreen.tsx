@@ -5,7 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as Linking from "expo-linking";
-import MenuSheet from "../components/MenuSheet";
+import AppMenuSheet from "../components/AppMenuSheet";
 import RiskMeter from "../components/RiskMeter";
 import { useTheme } from "../theme/ThemeProvider";
 import type { ApiAnalyzeResponse as AnalysisResult } from "../lib/api";
@@ -21,6 +21,7 @@ export default function ResultsScreen({ inputText, result, onBack }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const hasFlaggedUrl = (result.urls ?? []).some((u: any) => u.verdict === "flagged");
   const level = getRiskLevel(result.score ?? 0, hasFlaggedUrl);
@@ -31,6 +32,8 @@ export default function ResultsScreen({ inputText, result, onBack }: Props) {
       `Safety checklist (${level.toUpperCase()}):\n` +
       guidance.bullets.map((b) => `- ${b}`).join("\n");
     await Clipboard.setStringAsync(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   function escapeHtml(s: string) {
@@ -55,10 +58,7 @@ export default function ResultsScreen({ inputText, result, onBack }: Props) {
   }
 
   async function onReport() {
-    // 1) Export evidence first (optional but recommended)
-    await onExportEvidence();
-
-    // 2) Open official reporting page (demo-friendly)
+    // Open official reporting page (demo-friendly)
     await Linking.openURL("https://tdra.gov.ae/en/Services/report-a-cyber-incident");
   }
 
@@ -67,7 +67,11 @@ export default function ResultsScreen({ inputText, result, onBack }: Props) {
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: c.text }]}>Authenticity Result</Text>
 
-        <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} style={styles.menuBtn}>
+        <Pressable
+          onPress={() => setMenuOpen(true)}
+          hitSlop={10}
+          style={({ pressed }) => [styles.menuBtn, { opacity: pressed ? 0.6 : 1 }]}
+        >
           <Text style={[styles.menuIcon, { color: c.text }]}>☰</Text>
         </Pressable>
       </View>
@@ -97,15 +101,38 @@ export default function ResultsScreen({ inputText, result, onBack }: Props) {
         </View>
 
         <View style={styles.actionsRow}>
-          <Pressable style={[styles.actionBtn, { borderColor: c.border }]} onPress={onCopyChecklist}>
-            <Text style={[styles.actionBtnText, { color: c.text }]}>Copy safe checklist</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBtn,
+              { borderColor: c.border },
+              pressed && styles.actionBtnPressed,
+            ]}
+            onPress={onCopyChecklist}
+          >
+            <Text style={[styles.actionBtnText, { color: c.text }]}>
+              {copied ? "Copied ✓" : "Copy safe checklist"}
+            </Text>
           </Pressable>
 
-          <Pressable style={[styles.actionBtn, { borderColor: c.border }]} onPress={onExportEvidence}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBtn,
+              { borderColor: c.border },
+              pressed && styles.actionBtnPressed,
+            ]}
+            onPress={onExportEvidence}
+          >
             <Text style={[styles.actionBtnText, { color: c.text }]}>Export evidence</Text>
           </Pressable>
 
-          <Pressable style={[styles.actionBtnPrimary, { backgroundColor: c.primary }]} onPress={onReport}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionBtnPrimary,
+              { backgroundColor: c.primary },
+              pressed && styles.actionBtnPressed,
+            ]}
+            onPress={onReport}
+          >
             <Text style={[styles.actionBtnText, { color: "white" }]}>Report</Text>
           </Pressable>
         </View>
@@ -132,7 +159,7 @@ export default function ResultsScreen({ inputText, result, onBack }: Props) {
         </Pressable>
       </ScrollView>
 
-      <MenuSheet visible={menuOpen} onClose={() => setMenuOpen(false)} />
+      <AppMenuSheet visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -217,4 +244,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   actionBtnText: { fontSize: 12, fontWeight: "700" },
+  actionBtnPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.85,
+  },
 });
